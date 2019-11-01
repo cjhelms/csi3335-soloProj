@@ -45,8 +45,8 @@ class Program(cmd.Cmd):
     try:
         db = mysql.connector.connect(
             host="localhost",
-            user="root",
-            password="password123",
+            user="HW3335",
+            password="PW3335",
             database="relationship"
         )
         cur = db.cursor()
@@ -214,13 +214,31 @@ class Program(cmd.Cmd):
                         # get destination city of transfer candidate assignment
                         dest = (c[3].lower(), c[4].lower())
                         # check if they arrive/leave on the same day
-                        if dest == arriveCity and c[5] == self.translate(d[5],c[1]+travelTime):
+                        if dest == arriveCity:
                             # check if layover time is acceptable
-                            arriveTime = c[1] + travelTime - datetime.timedelta(days=travelTime.days)
+                            arriveDay = self.translate(d[5],travelTime)
+                            ndxT = self.week.index(c[5])
+                            ndxD = self.week.index(arriveDay)
+                            flag = False
+                            arriveTime = travelTime - datetime.timedelta(days=travelTime.days)
                             time = c[1] - arriveTime
-                            if time > minWait and time < maxWait:
+                            # if arrive same day, compare layover
+                            if c[5] == arriveDay:
+                                if time >= minWait and time <= maxWait:
+                                    flag = True
+                            # if layover spans a day
+                            elif c[1] < maxWait:
+                                if ndxT - ndxD == 1 or ndxT - ndxD == -6:
+                                    flag = True
+                                    time += datetime.timedelta(days=1)     
+                            # if layover spans a day, other direction                               
+                            elif (datetime.timedelta(days=1)-c[1]) < maxWait:
+                                if ndxD - ndxT == 1 or ndxD - ndxD == -6:
+                                    flag = True
+                            # if layover is ok, add to transfer solution
+                            if flag:
                                 transfer.append((d[0], d[1], d[2], d[3], d[4],
-                                                 time, c[0], c[1], c[2], c[5]))
+                                                    time, c[0], c[1], c[2], c[5]))
         except Exception as e:
             print("ERROR: Something went wrong while processing data.")
             print(e)
@@ -233,12 +251,17 @@ class Program(cmd.Cmd):
             else:
                 if len(direct) > 0:
                     print("Direct routes:")
+                    print("(route id, departure time, travel time, day of week "
+                    "of departure)")
                     for d in direct:
                         print(d[0], d[1], d[2], d[3])
                 else:
                     print("No direct routes.")
                 if len(transfer) > 0:
                     print("Transfer routes:")
+                    print("(route id, departure time, travel time, transfer city, "
+                    "transfer state, layover time, transfer departure time, transfer "
+                    "travel time, day of week of departure")
                     for t in transfer:
                         print(t[0], t[1], t[2], t[3], t[4], t[5], t[6],
                               t[7], t[8], t[9])
@@ -263,7 +286,8 @@ class Program(cmd.Cmd):
          "The first & last name must have no spaces (e.g. Mary Ann = MaryAnn).\n"
          "If there are many drivers with the same name, all will be returned.")
 
-        driver = None
+        driver = None # stores driver tuple from mysql
+        # sql queries
         sqlName = ("SELECT * "
                    "FROM bus_driver "
                    "WHERE first_name=%s AND last_name=%s")
@@ -273,12 +297,15 @@ class Program(cmd.Cmd):
         sqlAssign = ("SELECT * "
                      "FROM driver_assignment "
                      "WHERE driver_id=%s")
-        args = line.strip().split(',')
+        args = line.strip().split(',') # stores arguments from command
 
+        # check if user input is valid
         if args[0] != "name" and args[0] != "id" and args[0]:
             print("ERROR: Unknown search parameter.")
             return
 
+        # gather data
+        # search by name
         try:
             if args[0] == "name":
                 if len(args) > 3:
@@ -289,6 +316,7 @@ class Program(cmd.Cmd):
             print("ERROR: Something went wrong gathering data with name search.")
             print(e)
 
+        # search by id
         try:
             if args[0] == "id":
                 if len(args) > 2:
@@ -299,8 +327,11 @@ class Program(cmd.Cmd):
             print("ERROR: Something went wrong gathering data with id search.")
             print(e)
 
+        # process data
+        # get driver assignments
         try:
             assign = []
+            # if multiple drivers, get assignments for both
             for d in driver:
                 self.cur.execute(sqlAssign, (d[0],))
                 assign.append(self.cur.fetchall())
@@ -308,6 +339,7 @@ class Program(cmd.Cmd):
             print("ERROR: Something went wrong while gathering assignment data.")
             print(e)
 
+        # output data
         try:
             if len(driver) > 0:
                 for ndx, d in enumerate(driver):
@@ -334,7 +366,8 @@ class Program(cmd.Cmd):
          "Allowed day entries are: M, T, W, R, F, S, U\n"
          "Routes are sorted in order of time.")
 
-        day = datetime.timedelta(seconds=86400)
+        day = datetime.timedelta(seconds=86400) # seconds in a day
+        # mysql queries
         sqlDepart = ("SELECT route_id,departure_time "
                      "FROM routes NATURAL JOIN time_table "
                      "NATURAL JOIN driver_assignment "
@@ -345,12 +378,14 @@ class Program(cmd.Cmd):
                      "NATURAL JOIN driver_assignment "
                      "WHERE destination_city=%s AND destination_state = %s AND "
                      "day_of_week=%s")
-        line = line.replace(" ", "")
-        args = line.strip().split(',')
+        line = line.replace(" ", "") # process user input
+        args = line.strip().split(',') # store user input in args
         if len(args) != 3:
             print("ERROR: 3 arguments required for city_check.")
             return
 
+        # gather data
+        # get all arrivals & departures to/from city
         try:
             if args[2] not in self.weekend and args[2] not in self.weekday:
                 raise Exception("ERROR: Day not valid.")
@@ -363,6 +398,8 @@ class Program(cmd.Cmd):
             print(e)
             return
 
+        # process data
+        # figure out when arrivals arrive & sort by departure/arrival time
         try:
             arrive = []
             depart.sort(key=lambda r: r[1])
@@ -375,6 +412,7 @@ class Program(cmd.Cmd):
             print(e)
             return
 
+        # output data
         try:
             if len(depart) == 0 & len(arrive) == 0:
                 print("City not found or no departures/arrivals for given day.")
@@ -400,11 +438,11 @@ class Program(cmd.Cmd):
         # help text
         "Quits the program."
 
-        self.cur.execute("DELETE FROM driver_assignment")
-        self.cur.execute("DELETE FROM bus_driver")
-        self.cur.execute("DELETE FROM time_table")
-        self.cur.execute("DELETE FROM routes")
-        self.db.commit()
+        # self.cur.execute("DELETE FROM driver_assignment")
+        # self.cur.execute("DELETE FROM bus_driver")
+        # self.cur.execute("DELETE FROM time_table")
+        # self.cur.execute("DELETE FROM routes")
+        # self.db.commit()
 
         return True
 
@@ -414,7 +452,7 @@ class Program(cmd.Cmd):
     # ndx = 2: bus_driver
     # ndx = 3: driver_assignments
     def precheck(self, tup, ndx):
-        flag = True
+        flag = True # used to determine if a check has failed
         if ndx == 1:
             # check (run_in_weekdays/ends) against routes(weekday_only)
             sqlQuery = ("SELECT weekday_only "
@@ -429,9 +467,6 @@ class Program(cmd.Cmd):
                     # route is weekday only, tuple runs weekend or not weekday
                     if check and (tup[2] == "0" or tup[3] == "1"):
                         flag = False
-                    # # route is not weekday only, tuple does not run all week
-                    # elif not check and (tup[2] == "0" or tup[3] == "0"):
-                    #     flag = False
                 if not flag:
                     print("WARNING: Skipping tuple... ", tup)
                     print("Tuple failed time_table precheck.")
@@ -452,6 +487,7 @@ class Program(cmd.Cmd):
                 if len(check) > 0:
                     runsWeekday = check[0][0]
                     runsWeekend = check[0][1]
+                    # check if assignment consistent with time table
                     if runsWeekday and not runsWeekend and tup[3] in self.weekend:
                         flag = False
                     elif runsWeekend and not runsWeekday and tup[3] in self.weekday:
@@ -472,27 +508,28 @@ class Program(cmd.Cmd):
             #   since it is unknown when the route may leave, it is only checked if
             #       there will be enough rest without the transfer
             try:
-                eTravelTime = 0
-                eDaysTraveling = []
-                eDepartTime = 0
-                eArriveTime = 0
-                nTravelTime = 0
-                nDaysTraveling = []
-                nDepartTime = 0
-                nArriveTime = 0
-                eRest = 0
-                nRest = 0
-                nDepartCity = ""
-                nDepartState = ""
-                nArriveCity = ""
-                nArriveState = ""
-                eDepartCity = ""
-                eDepartState = ""
-                eArriveCity = ""
-                eArriveState = ""
-                bufferTime = 1000
-                message = ""
+                eTravelTime = 0 # existing travel time
+                eDaysTraveling = [] # days existing route travels
+                eDepartTime = 0 # existing departure time
+                eArriveTime = 0 # existing arrival time
+                nTravelTime = 0 # new tuple travel time
+                nDaysTraveling = [] # days new tuple travels
+                nDepartTime = 0 # new tuple departure time
+                nArriveTime = 0 # new tuple arrival time
+                eRest = 0 # required rest for existing route
+                nRest = 0 # required rest for new tuple
+                nDepartCity = "" # new tuple departure city
+                nDepartState = "" # new tuple departure state
+                nArriveCity = "" # new tuple arrival city
+                nArriveState = "" # new tuple arrival state
+                eDepartCity = "" # existing departure city
+                eDepartState = "" # existing departure state
+                eArriveCity = "" # existing arrival city
+                eArriveState = "" # existing arrival state
+                bufferTime = 1000 # buffer time between arriving/departing
+                message = "" # message to display if flag is set to false
 
+                # gather assignment data for driver in tuple
                 try:                
                     self.cur.execute("SELECT route_id,departure_time,day_of_week "
                     "FROM driver_assignment "
@@ -502,6 +539,7 @@ class Program(cmd.Cmd):
                     print("ERROR: Failed to load existing tuple route...")
                     print(e)
 
+                # assign new tuple data to easy to read variables
                 try:
                     self.cur.execute("SELECT travel_time,departure_city,"
                     "departure_state,destination_city,destination_state "
@@ -518,6 +556,7 @@ class Program(cmd.Cmd):
                     print(e)
                     return
                 
+                # continue assigning new tuple to easy to read variables
                 temp = datetime.datetime.strptime(tup[2], "%H:%M")
                 nDepartTime = datetime.timedelta(hours=temp.hour, minutes=temp.minute)
                 nDaysTraveling.append(tup[3])
@@ -533,7 +572,9 @@ class Program(cmd.Cmd):
                     
                 # print("NEW: ", nDepartTime, nArriveTime, nDaysTraveling)
 
+                # check new tuple against each assignment for driver
                 for a in assgns:
+                    # assign existing to easy to read variables
                     try:
                         self.cur.execute("SELECT travel_time,departure_city,"
                         "departure_state,destination_city,destination_state "
@@ -565,14 +606,31 @@ class Program(cmd.Cmd):
 
                     # check start day of new tuple
                     if nDaysTraveling[0] in eDaysTraveling:
+                        # if new leaves same as existing
                         if nDaysTraveling[0] == eDaysTraveling[0]:
+                            # if new arrives same as existing leaves
                             if nDaysTraveling[-1] == eDaysTraveling[0]:
-                                if eDepartTime < nArriveTime:
-                                    flag = False
-                                    message = "Assignment leaves while existing travels."
-                                elif eDepartTime < nArriveTime + nRest:
-                                    flag = False
-                                    message = "Assignment does not allow enough rest."
+                                # if new leaves before existing
+                                if nDepartTime < eDepartTime:
+                                    # if existing leaves before new arrives
+                                    if eDepartTime < nArriveTime: 
+                                        flag = False
+                                        message = "Assignment leaves while existing travels."
+                                    # check rest time
+                                    elif eDepartTime < nArriveTime + nRest:
+                                        flag = False
+                                        message = "Assignment does not allow enough rest."
+                                # if existing leaves before new
+                                elif eDepartTime < nDepartTime:
+                                    # if new leaves before existing arrives
+                                    if nDepartTime < eArriveTime:
+                                        flag = False
+                                        message = "Assignment leaves before existing arrives."
+                                    # check rest time
+                                    elif nDepartTime < eArriveTime + eRest:
+                                        flag = False
+                                        message = "Assignment does not allow enough rest."
+                            # otherwise, check if new leaving day existing arrives
                             elif nDaysTraveling[0] == eDaysTraveling[-1]:
                                 if nDepartTime < eArriveTime:
                                     flag = False
@@ -580,8 +638,11 @@ class Program(cmd.Cmd):
                         else:
                             flag = False
                             message = "Assignment leaves while existing travels."
+                    # if rest & overlap are ok, check if driver can get to new city
+                    # check new leaving second
                     if flag and nDaysTraveling[0] == self.translate(eDaysTraveling[-1],eArriveTime + eRest):
                         bufferTime = (eArriveTime + eRest) - datetime.timedelta(days=(eArriveTime + eRest).days)
+                        # check rest over multiple days
                         if nDepartTime < bufferTime:
                             flag = False
                             message = "Assignment does not allow enough rest."
@@ -603,14 +664,6 @@ class Program(cmd.Cmd):
                                 print(e)
                                 return
                     # check end day of new tuple
-                    if nDaysTraveling[-1] in eDaysTraveling and flag:
-                        if nDaysTraveling[-1] == eDaysTraveling[0]:
-                            if eDepartTime < nArriveTime:
-                                flag = False
-                                message = "Assignment travels when existing leaves."
-                        else:
-                            flag = False
-                            message = "Assignment travels when existing leaves."
                     if flag and eDaysTraveling[0] == self.translate(nDaysTraveling[-1],nArriveTime + nRest):
                         bufferTime = (nArriveTime + nRest) - datetime.timedelta(days=(nArriveTime + nRest).days)
                         if eDepartTime < bufferTime:
@@ -633,6 +686,7 @@ class Program(cmd.Cmd):
                                 print("ERROR: Something went wrong checking for existing route in check.")
                                 print(e)
                                 return
+                    # print warning message if flag if check failed
                     if flag == False:
                         print("WARNING: Skipping tuple... ", tup)
                         print(message)
@@ -640,6 +694,7 @@ class Program(cmd.Cmd):
                 print("ERROR: Something went wrong while checking for assignment overlap.")
                 print(e)
                 return
+        # bad user input
         elif ndx < 0 or ndx > 3:
             print("ERROR: Check function requires index between 0 & 3.")
             flag = False
@@ -662,10 +717,12 @@ class Program(cmd.Cmd):
                     "FROM time_table "
                     "WHERE route_id=%s",(r[0],))
                     timetable = self.cur.fetchall()
+                    # check all time table
                     for t in timetable:
                         if t[1]:
                             runsWeekend = True
-                    if not runsWeekend:
+                    # if route doesn't run on weekend & it should
+                    if not runsWeekend and not routes[1]:
                         print("WARNING: Route only runs on weekdays...",r[0])
         if ndx == 3:
             # check all routes have driver on all days of week &/or weekend
@@ -677,13 +734,19 @@ class Program(cmd.Cmd):
                 daysRunning = []
                 for a in assign:
                     daysRunning.append(a[0])
+                # for each day of the week
                 for day in self.weekday:
+                    # if day is not days it runs
                     if day not in daysRunning:
                         print("WARNING: Route not running on day...", r[0], day)
+                # if weekday only
                 if r[1] == 0:
+                    # for each day of weekend
                     for day in self.weekend:
+                        # if day is not days it runs
                         if day not in daysRunning:
                             print("WARNING: Route not running on day...", r[0], day)
+        # bad user input
         elif ndx < 0 or ndx > 3:
             print("ERROR: Check function requires index between 0 & 3.")
         return 0

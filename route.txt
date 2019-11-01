@@ -1,4 +1,4 @@
-1A,Topeka,NewYork,KS,NY,50:00,0,100
+1A,Topeka,NewYork,KS,NY,04:00,0,100
 1B,NewYork,Topeka,NY,KS,04:00,0,100
 2A,Philadelphia,Topeka,PA,KS,10:00,1,100
 2B,Topeka,Philadelphia,KS,PA,8:00,0,100
@@ -6,7 +6,7 @@
 3B,Waco,Augusta,TX,GA,01:00,1,100
 4,Augusta,Topeka,GA,KS,14:00,1,100
 5,Philadelphia,Augusta,PA,GA,12:00,1,100
-6,NewYork,Philadelphia,NY,PA,06:00,0,100
+6,NewYork,Philadelphia,NY,PA,00:05,0,100
 7A,Seattle,Philadelphia,WA,PA,20:00,1,100
 7B,Philadelphia,Seattle,PA,WA,20:00,0,100
 8,Seattle,Waco,WA,TX,18:00,0,100
