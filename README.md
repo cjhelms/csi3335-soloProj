@@ -1,18 +1,18 @@
 This program was built using Python 3.7.4 & uses the cmd module of python. MySQL 8.0 was used for the database system & connects to Python 3.7.4 using the mysql.connector module. The Python datetime module was used to store times when used in the python program.
 The only class of the project is Program which builds on the cmd module to run as a command line interface. This module includes help functionality as well as the ability to easily add user commands by defining functions with the name “do_[NAME]” within the class. The user commands I created are:
 
-#   do_input_files - used to populate the database
-#   do_route_check - used to check for routes to/from 2 cities
-#   do_driver_info - used to pull info on a driver
-#   do_city_check - used to check all departures/arrivals to/from a city
-#   do_quit - quits program
+   do_input_files - used to populate the database
+   do_route_check - used to check for routes to/from 2 cities
+   do_driver_info - used to pull info on a driver
+   do_city_check - used to check all departures/arrivals to/from a city
+   do_quit - quits program
 
 I created a few additional helper functions to aid in the programming:
 
-#   precheck - performs all prechecks on tuples before insertion
-#   postcheck - performs all postchecks on tables after all insertions
-#   translate - translates start depart day + a travel time into the arrive day
-#   travelDays - determines all days of week a route travels on (uses translate)
+   precheck - performs all prechecks on tuples before insertion
+   postcheck - performs all postchecks on tables after all insertions
+   translate - translates start depart day + a travel time into the arrive day
+   travelDays - determines all days of week a route travels on (uses translate)
 
 The help for each user command is thorough. Since the purpose of this project was to work with a database, I did not spend a lot of time on user interface. Inputs must be entered in a specific way & are clearly outlined in the program introduction (prompt displayed when the program is started) & the help for each function. The program assumes proper user input & only the most obvious user input mistakes are corrected.
 The file input function (do_input_files) reads 4 text file names without extensions to be read from the working directory. It enters data for routes, time_table, bus_driver, & driver_assignments IN THAT ORDER (i.e. enter the text file names in that order). For each tuple, it first prechecks the tuple (if necessary) by running the precheck function. It then tries to prepare the tuple for insertion. After it has entered all tuples for the current table, it runs the postcheck function for all the tuples it has entered. It then displays how many tuples were successfully prepared for insertion. This is done for all 4 tables. After all the tables have been prepared, it will try to commit to the database. Warnings & errors are displayed to the user. Warnings involve a skipped tuple or that a non-vital condition has been violated. Errors are associated with a complete function failure.
